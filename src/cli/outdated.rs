@@ -35,7 +35,7 @@ pub async fn run(_reporter: &dyn Reporter) -> Result<()> {
         println!("  (everything up to date)");
         return Ok(());
     }
-    println!("  {:<24} {:<14} → {}", "NAME", "INSTALLED", "LATEST");
+    println!("  {:<24} {:<14} → LATEST", "NAME", "INSTALLED");
     for r in &rows {
         println!("  {:<24} {:<14} → {}", r.name, r.installed, r.latest);
     }
