@@ -3,6 +3,7 @@ pub mod history;
 pub mod info;
 pub mod list;
 pub mod outdated;
+pub mod readd;
 pub mod remove;
 pub mod rollback;
 pub mod search;
@@ -61,6 +62,10 @@ enum Cmd {
         #[arg(long)]
         full: bool,
     },
+    Readd {
+        #[arg(required = true)]
+        name: String,
+    },
     Upgrade {
         names: Vec<String>,
     },
@@ -96,6 +101,7 @@ pub async fn run() -> ExitCode {
         Cmd::Info { name } => info::run(&name, reporter.as_ref()).await,
         Cmd::Remove { names } => remove::run(&names, cli.yes, reporter.as_ref()).await,
         Cmd::Outdated => outdated::run(reporter.as_ref()).await,
+        Cmd::Readd { name } => readd::run(&name, cli.yes, reporter.as_ref()).await,
         Cmd::Rollback => rollback::run(cli.yes, reporter.as_ref()).await,
         Cmd::Search { query } => search::run(&query, reporter.as_ref()).await,
         Cmd::Update { full } => update::run(full, reporter.as_ref()).await,
