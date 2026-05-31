@@ -12,8 +12,13 @@ async fn add_tree_installs_and_runs() {
     let sandbox = Sandbox::new();
 
     let reporter = olma::output::default_reporter();
-    olma::cli::add::run("tree", reporter.as_ref()).await
-        .expect("add tree should succeed");
+    olma::cli::add::run(
+        "tree",
+        olma::metadata::client::FetchPolicy::CacheFirst,
+        true,
+        false,
+        reporter.as_ref(),
+    ).await.expect("add tree should succeed");
 
     let tree_bin = sandbox.bin().join("tree");
     assert!(tree_bin.exists(), "expected {} to exist", tree_bin.display());

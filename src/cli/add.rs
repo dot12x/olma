@@ -7,7 +7,15 @@ use crate::pipeline::{download, extract, link, relocate, verify};
 use crate::platform::current_bottle_tag;
 use crate::relocator::macho;
 
-pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
+pub async fn run(
+    name: &str,
+    policy: crate::metadata::client::FetchPolicy,
+    yes: bool,
+    dry_run: bool,
+    reporter: &dyn Reporter,
+) -> Result<()> {
+    let _ = yes;
+    let _ = dry_run;
     macho::check_clt_available()?;
 
     let config = Config::from_env();
@@ -16,7 +24,7 @@ pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
 
     reporter.status(&format!("Fetching {name} metadata"));
     let client = FormulaeClient::new(&config)?;
-    let formula = client.fetch(name, crate::metadata::client::FetchPolicy::CacheFirst).await?;
+    let formula = client.fetch(name, policy).await?;
 
     if !formula.dependencies.is_empty() {
         return Err(OlmaError::Other(format!(
