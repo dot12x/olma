@@ -10,6 +10,7 @@ use crate::fs_lock::WriteLock;
 use crate::metadata::ghcr::GhcrClient;
 use crate::output::Reporter;
 use crate::resolver::InstallPlan;
+use crate::state::{Db, packages::PackageRow, transactions::{PackageChange, TransactionRow}};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Semaphore};
 
@@ -93,6 +94,30 @@ impl Pipeline {
             let dest = self.config.package_dir(&item.formula.name, item.formula.version());
             link::link_bin(&self.config, &dest)?;
         }
+
+        let db = Db::open(&self.config)?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let mut changes = Vec::with_capacity(linked.len());
+        for item in &linked {
+            let was = PackageRow::get(&db, &item.formula.name)?.map(|r| r.version);
+            PackageRow::upsert(&db, &PackageRow {
+                name: item.formula.name.clone(),
+                version: item.formula.version().to_string(),
+                installed_at: now,
+                requested: plan.requested.contains(&item.formula.name),
+                previous_ver: was.clone(),
+            })?;
+            changes.push(PackageChange {
+                name: item.formula.name.clone(),
+                from_version: was,
+                to_version: Some(item.formula.version().to_string()),
+                requested: plan.requested.contains(&item.formula.name),
+            });
+        }
+        TransactionRow::insert(&db, "add", &changes)?;
 
         let requested: Vec<&str> = plan.requested.iter().map(|s| s.as_str()).collect();
         self.reporter.success(&format!("Installed {} packages ({})", linked.len(), requested.join(", ")));
