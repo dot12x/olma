@@ -1,3 +1,4 @@
+use crate::cli::default::{family_of, relink_family};
 use crate::config::Config;
 use crate::error::{OlmaError, Result};
 use crate::output::Reporter;
@@ -51,7 +52,7 @@ pub async fn run(yes: bool, reporter: &dyn Reporter) -> Result<()> {
                 }
                 let current_dir = c.to_version.as_deref()
                     .map(|v| config.package_dir(&c.name, v));
-                relink_family(&config, &c.name, &prev_dir)?;
+                relink_family(&config, family_of(&c.name), &prev_dir)?;
                 PackageRow::upsert(&db, &PackageRow {
                     name: c.name.clone(),
                     version: prev_ver.to_string(),
@@ -77,7 +78,7 @@ pub async fn run(yes: bool, reporter: &dyn Reporter) -> Result<()> {
                         "previous default {prev_ver} of {} is not on disk", c.name
                     )));
                 }
-                relink_family(&config, &c.name, &prev_dir)?;
+                relink_family(&config, family_of(&c.name), &prev_dir)?;
                 if let Some(mut row) = PackageRow::get(&db, &c.name)? {
                     row.version = prev_ver.to_string();
                     PackageRow::upsert(&db, &row)?;
@@ -90,20 +91,5 @@ pub async fn run(yes: bool, reporter: &dyn Reporter) -> Result<()> {
     }
 
     TransactionRow::mark_reverted(&db, last.id)?;
-    Ok(())
-}
-
-fn relink_family(config: &Config, name: &str, version_dir: &std::path::Path) -> Result<()> {
-    let bin_src = version_dir.join("bin");
-    if !bin_src.exists() { return Ok(()); }
-    let bin_dst = config.bin();
-    std::fs::create_dir_all(&bin_dst)?;
-    for entry in std::fs::read_dir(&bin_src)? {
-        let entry = entry?;
-        let link = bin_dst.join(entry.file_name());
-        let _ = std::fs::remove_file(&link);
-        std::os::unix::fs::symlink(entry.path(), &link)?;
-    }
-    let _ = name;
     Ok(())
 }

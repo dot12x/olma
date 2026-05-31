@@ -1,4 +1,5 @@
 pub mod add;
+pub mod default;
 pub mod history;
 pub mod info;
 pub mod list;
@@ -39,6 +40,9 @@ enum Cmd {
     Add {
         #[arg(required = true)]
         names: Vec<String>,
+    },
+    Default {
+        target: String,
     },
     List,
     History {
@@ -96,6 +100,7 @@ pub async fn run() -> ExitCode {
     };
     let result = match cli.cmd {
         Cmd::Add { names } => add::run(&names, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
+        Cmd::Default { target } => default::run(&target, reporter.as_ref()).await,
         Cmd::List => list::run(reporter.as_ref()).await,
         Cmd::History { limit } => history::run(limit, reporter.as_ref()).await,
         Cmd::Info { name } => info::run(&name, reporter.as_ref()).await,
