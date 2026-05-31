@@ -1,4 +1,5 @@
 pub mod add;
+pub mod list;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
@@ -30,6 +31,7 @@ enum Cmd {
         #[arg(required = true)]
         names: Vec<String>,
     },
+    List,
 }
 
 impl Cli {
@@ -57,6 +59,7 @@ pub async fn run() -> ExitCode {
     };
     let result = match cli.cmd {
         Cmd::Add { names } => add::run(&names, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
+        Cmd::List => list::run(reporter.as_ref()).await,
     };
     match result {
         Ok(()) => ExitCode::from(0),
