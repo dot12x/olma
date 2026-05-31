@@ -1,5 +1,6 @@
 pub mod client;
 pub mod ghcr;
+pub mod index;
 
 use serde::Deserialize;
 use std::collections::HashMap;

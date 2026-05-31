@@ -5,6 +5,7 @@ pub mod list;
 pub mod outdated;
 pub mod remove;
 pub mod rollback;
+pub mod search;
 pub mod update;
 
 use clap::{Parser, Subcommand};
@@ -52,6 +53,9 @@ enum Cmd {
     },
     Outdated,
     Rollback,
+    Search {
+        query: String,
+    },
     Update {
         #[arg(long)]
         full: bool,
@@ -89,6 +93,7 @@ pub async fn run() -> ExitCode {
         Cmd::Remove { names } => remove::run(&names, cli.yes, reporter.as_ref()).await,
         Cmd::Outdated => outdated::run(reporter.as_ref()).await,
         Cmd::Rollback => rollback::run(cli.yes, reporter.as_ref()).await,
+        Cmd::Search { query } => search::run(&query, reporter.as_ref()).await,
         Cmd::Update { full } => update::run(full, reporter.as_ref()).await,
     };
     match result {
