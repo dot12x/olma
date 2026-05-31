@@ -7,6 +7,7 @@ pub mod remove;
 pub mod rollback;
 pub mod search;
 pub mod update;
+pub mod upgrade;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
@@ -60,6 +61,9 @@ enum Cmd {
         #[arg(long)]
         full: bool,
     },
+    Upgrade {
+        names: Vec<String>,
+    },
 }
 
 impl Cli {
@@ -95,6 +99,7 @@ pub async fn run() -> ExitCode {
         Cmd::Rollback => rollback::run(cli.yes, reporter.as_ref()).await,
         Cmd::Search { query } => search::run(&query, reporter.as_ref()).await,
         Cmd::Update { full } => update::run(full, reporter.as_ref()).await,
+        Cmd::Upgrade { names } => upgrade::run(&names, cli.yes, reporter.as_ref()).await,
     };
     match result {
         Ok(()) => ExitCode::from(0),
