@@ -3,6 +3,7 @@ pub mod history;
 pub mod list;
 pub mod remove;
 pub mod rollback;
+pub mod update;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
@@ -45,6 +46,10 @@ enum Cmd {
         names: Vec<String>,
     },
     Rollback,
+    Update {
+        #[arg(long)]
+        full: bool,
+    },
 }
 
 impl Cli {
@@ -76,6 +81,7 @@ pub async fn run() -> ExitCode {
         Cmd::History { limit } => history::run(limit, reporter.as_ref()).await,
         Cmd::Remove { names } => remove::run(&names, cli.yes, reporter.as_ref()).await,
         Cmd::Rollback => rollback::run(cli.yes, reporter.as_ref()).await,
+        Cmd::Update { full } => update::run(full, reporter.as_ref()).await,
     };
     match result {
         Ok(()) => ExitCode::from(0),
