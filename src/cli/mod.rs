@@ -1,4 +1,5 @@
 pub mod add;
+pub mod history;
 pub mod list;
 
 use clap::{Parser, Subcommand};
@@ -32,6 +33,10 @@ enum Cmd {
         names: Vec<String>,
     },
     List,
+    History {
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+    },
 }
 
 impl Cli {
@@ -60,6 +65,7 @@ pub async fn run() -> ExitCode {
     let result = match cli.cmd {
         Cmd::Add { names } => add::run(&names, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
         Cmd::List => list::run(reporter.as_ref()).await,
+        Cmd::History { limit } => history::run(limit, reporter.as_ref()).await,
     };
     match result {
         Ok(()) => ExitCode::from(0),
