@@ -19,6 +19,14 @@ pub const MIGRATIONS: &[&str] = &[
         reverted  INTEGER NOT NULL DEFAULT 0
     );
     "#,
+    r#"
+    CREATE TABLE IF NOT EXISTS bottle_consumers (
+        formula        TEXT NOT NULL,
+        bottle_sha256  TEXT NOT NULL,
+        PRIMARY KEY (formula, bottle_sha256)
+    );
+    CREATE INDEX IF NOT EXISTS idx_bottle_consumers_sha ON bottle_consumers (bottle_sha256);
+    "#,
 ];
 
 pub fn apply(conn: &Connection) -> Result<()> {
