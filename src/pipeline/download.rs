@@ -46,6 +46,17 @@ pub async fn download(
     Ok(Downloaded { path: final_path, sha256_hex: hex, bytes })
 }
 
+pub struct DownloadedWithFormula {
+    pub dl: Downloaded,
+    pub formula: crate::metadata::Formula,
+}
+
+impl DownloadedWithFormula {
+    pub fn new(dl: Downloaded, formula: crate::metadata::Formula) -> Self {
+        Self { dl, formula }
+    }
+}
+
 fn extract_scope_repo(url: &str) -> Option<String> {
     let path = url.split("ghcr.io/").nth(1)?;
     let parts: Vec<&str> = path.split('/').collect();
