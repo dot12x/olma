@@ -4,7 +4,7 @@ pub mod ghcr;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Formula {
     pub name: String,
     pub desc: Option<String>,
@@ -15,24 +15,24 @@ pub struct Formula {
     pub bottle: BottleSpec,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Versions {
     pub stable: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BottleSpec {
     pub stable: BottleStable,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BottleStable {
     pub rebuild: Option<u32>,
     pub root_url: String,
     pub files: HashMap<String, BottleFile>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BottleFile {
     pub cellar: String,
     pub url: String,

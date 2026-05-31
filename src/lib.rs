@@ -8,3 +8,4 @@ pub mod output;
 pub mod pipeline;
 pub mod platform;
 pub mod relocator;
+pub mod resolver;
