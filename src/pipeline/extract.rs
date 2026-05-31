@@ -32,12 +32,14 @@ pub async fn extract_and_relocate(
     if staging.exists() { std::fs::remove_dir_all(&staging)?; }
     std::fs::create_dir_all(&staging)?;
     extract(&item.dl.path, &staging).await?;
-    let inner = staging.join(&item.formula.name).join(item.formula.version());
-    if !inner.is_dir() {
-        return Err(crate::error::OlmaError::Other(format!(
-            "unexpected bottle layout: expected {}", inner.display()
-        )));
-    }
+    let name_dir = staging.join(&item.formula.name);
+    let inner = first_subdir(&name_dir).ok_or_else(|| crate::error::OlmaError::Other(format!(
+        "unexpected bottle layout: no version directory under {}",
+        name_dir.display()
+    )))?;
+    let bottle_version_dir = inner.file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| item.formula.version().to_string());
     let dest = config.package_dir(&item.formula.name, item.formula.version());
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)?;
@@ -51,11 +53,18 @@ pub async fn extract_and_relocate(
     let new_cellar = dest.to_string_lossy().to_string();
     let new_root = config.root.to_string_lossy().to_string();
     let swaps: Vec<(String, String)> = vec![
-        (format!("/opt/homebrew/Cellar/{}/{}", item.formula.name, item.formula.version()), new_cellar.clone()),
-        (format!("/usr/local/Cellar/{}/{}", item.formula.name, item.formula.version()), new_cellar.clone()),
+        (format!("/opt/homebrew/Cellar/{}/{}", item.formula.name, bottle_version_dir), new_cellar.clone()),
+        (format!("/usr/local/Cellar/{}/{}", item.formula.name, bottle_version_dir), new_cellar.clone()),
         ("/opt/homebrew".into(), new_root.clone()),
         ("/usr/local".into(), new_root.clone()),
     ];
     relocate::relocate_tree(&dest, swaps).await?;
     Ok(())
+}
+
+fn first_subdir(dir: &Path) -> Option<PathBuf> {
+    std::fs::read_dir(dir).ok()?
+        .filter_map(|e| e.ok())
+        .find(|e| e.path().is_dir())
+        .map(|e| e.path())
 }
