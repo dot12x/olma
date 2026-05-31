@@ -52,7 +52,7 @@ impl<'a> Resolver<'a> {
         for node in deps.keys() {
             indegree.entry(node.clone()).or_insert(0);
         }
-        for (_node, ds) in deps {
+        for ds in deps.values() {
             for d in ds {
                 *indegree.entry(d.clone()).or_insert(0) += 1;
             }
