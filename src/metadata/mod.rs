@@ -6,6 +6,26 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct Service {
+    #[serde(default)]
+    pub run: Vec<String>,
+    pub keep_alive: Option<KeepAlive>,
+    pub working_dir: Option<String>,
+    pub log_path: Option<String>,
+    pub error_log_path: Option<String>,
+    #[serde(default)]
+    pub environment_variables: HashMap<String, String>,
+    pub process_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum KeepAlive {
+    Bool(bool),
+    Obj(HashMap<String, serde_json::Value>),
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Formula {
     pub name: String,
     pub desc: Option<String>,
@@ -14,6 +34,10 @@ pub struct Formula {
     pub dependencies: Vec<String>,
     pub versions: Versions,
     pub bottle: BottleSpec,
+    #[serde(default)]
+    pub service: Option<Service>,
+    #[serde(default)]
+    pub caveats: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
