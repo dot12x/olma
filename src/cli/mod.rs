@@ -1,5 +1,6 @@
 pub mod add;
 pub mod history;
+pub mod info;
 pub mod list;
 pub mod outdated;
 pub mod remove;
@@ -41,6 +42,9 @@ enum Cmd {
         #[arg(long, default_value_t = 20)]
         limit: i64,
     },
+    Info {
+        name: String,
+    },
     #[command(alias = "rm")]
     Remove {
         #[arg(required = true)]
@@ -81,6 +85,7 @@ pub async fn run() -> ExitCode {
         Cmd::Add { names } => add::run(&names, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
         Cmd::List => list::run(reporter.as_ref()).await,
         Cmd::History { limit } => history::run(limit, reporter.as_ref()).await,
+        Cmd::Info { name } => info::run(&name, reporter.as_ref()).await,
         Cmd::Remove { names } => remove::run(&names, cli.yes, reporter.as_ref()).await,
         Cmd::Outdated => outdated::run(reporter.as_ref()).await,
         Cmd::Rollback => rollback::run(cli.yes, reporter.as_ref()).await,
