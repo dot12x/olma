@@ -30,10 +30,10 @@ fn which(name: &str) -> Option<std::path::PathBuf> {
 pub fn relocate_macho(path: &Path, old_prefix: &str, new_prefix: &str) -> Result<()> {
     let load_cmds = otool_l(path)?;
 
-    if let Some(id) = load_cmds.id_dylib.as_deref() {
-        if let Some(new_id) = swap_prefix(id, old_prefix, new_prefix) {
-            run(Command::new("install_name_tool").args(["-id", &new_id, path.to_str().unwrap()]))?;
-        }
+    if let Some(id) = load_cmds.id_dylib.as_deref()
+        && let Some(new_id) = swap_prefix(id, old_prefix, new_prefix)
+    {
+        run(Command::new("install_name_tool").args(["-id", &new_id, path.to_str().unwrap()]))?;
     }
 
     for dep in &load_cmds.load_dylibs {

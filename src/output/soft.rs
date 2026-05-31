@@ -13,6 +13,12 @@ struct State {
     frame: usize,
 }
 
+impl Default for SoftReporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SoftReporter {
     pub fn new() -> Self {
         SoftReporter {
