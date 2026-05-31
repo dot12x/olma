@@ -23,7 +23,6 @@ impl GhcrClient {
         Ok(Self { http })
     }
 
-    /// Returns an anonymous pull token for a single repository scope, e.g. `homebrew/core/tree`.
     pub async fn token(&self, scope_repo: &str) -> Result<String> {
         let url = format!(
             "https://ghcr.io/token?service=ghcr.io&scope=repository:{scope_repo}:pull"
@@ -38,7 +37,6 @@ impl GhcrClient {
         Ok(body.token)
     }
 
-    /// Streams the blob bytes into `sink`; returns total bytes written.
     pub async fn fetch_blob<W>(
         &self,
         url: &str,

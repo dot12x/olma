@@ -30,7 +30,6 @@ impl SoftReporter {
     fn write_line(&self, prefix: &str, msg: &str) {
         let mut err = std::io::stderr().lock();
         if self.is_tty {
-            // \r clears, no newline so the line is overwritten
             let _ = write!(err, "\r\x1b[2K{prefix}  {msg}");
             let _ = err.flush();
         } else {

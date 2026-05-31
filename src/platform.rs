@@ -51,7 +51,6 @@ pub async fn detect_macos_codename() -> Result<String> {
         .ok_or_else(|| OlmaError::Other(format!("unsupported macOS version: {version}")))
 }
 
-/// Returns the Homebrew bottle tag for this host, e.g. "arm64_sonoma".
 pub async fn current_bottle_tag() -> Result<String> {
     Ok(format!("{}_{}", Arch::current().as_bottle_str(), detect_macos_codename().await?))
 }

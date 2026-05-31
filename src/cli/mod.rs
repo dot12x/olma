@@ -14,7 +14,6 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Install a package.
     Add { name: String },
 }
 

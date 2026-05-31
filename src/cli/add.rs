@@ -1,4 +1,4 @@
-use crate::config::Paths;
+use crate::config::Config;
 use crate::error::{OlmaError, Result};
 use crate::fs_lock::WriteLock;
 use crate::metadata::{client::FormulaeClient, ghcr::GhcrClient};
@@ -10,12 +10,12 @@ use crate::relocator::macho;
 pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
     macho::check_clt_available()?;
 
-    let paths = Paths::from_env();
-    paths.ensure_layout()?;
-    let _lock = WriteLock::acquire_blocking(&paths.lock_file()).await?;
+    let config = Config::from_env();
+    config.ensure_layout()?;
+    let _lock = WriteLock::acquire_blocking(&config.lock_file()).await?;
 
     reporter.status(&format!("Fetching {name} metadata"));
-    let client = FormulaeClient::new()?;
+    let client = FormulaeClient::new(&config)?;
     let formula = client.fetch(name).await?;
 
     if !formula.dependencies.is_empty() {
@@ -34,14 +34,11 @@ pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
 
     reporter.status(&format!("Downloading {name} {}", formula.version()));
     let ghcr = GhcrClient::new()?;
-    let dl = download::download(&ghcr, bottle, &paths).await?;
+    let dl = download::download(&ghcr, bottle, &config).await?;
     verify::verify_sha256(&bottle.sha256, &dl.sha256_hex)?;
 
-    // Extract into a fresh staging directory; bottles unpack as
-    // `<name>/<version>/...`. Then move that inner directory to
-    // `/opt/olma/packages/<name>/<version>/`.
     reporter.status(&format!("Extracting {name}"));
-    let staging = paths.cache().join("staging")
+    let staging = config.cache().join("staging")
         .join(format!("{}-{}", formula.name, formula.version()));
     if staging.exists() { std::fs::remove_dir_all(&staging)?; }
     std::fs::create_dir_all(&staging)?;
@@ -52,7 +49,7 @@ pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
             "unexpected bottle layout: expected {}", inner.display()
         )));
     }
-    let dest = paths.package_dir(&formula.name, formula.version());
+    let dest = config.package_dir(&formula.name, formula.version());
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -64,7 +61,7 @@ pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
 
     reporter.status(&format!("Relocating {name}"));
     let new_cellar = dest.to_string_lossy().to_string();
-    let new_root = paths.root.to_string_lossy().to_string();
+    let new_root = config.root.to_string_lossy().to_string();
     let swaps: Vec<(String, String)> = vec![
         (format!("/opt/homebrew/Cellar/{}/{}", formula.name, formula.version()), new_cellar.clone()),
         (format!("/usr/local/Cellar/{}/{}", formula.name, formula.version()), new_cellar.clone()),
@@ -74,7 +71,7 @@ pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
     relocate::relocate_tree(&dest, swaps).await?;
 
     reporter.status(&format!("Linking {name} into bin/"));
-    let stats = link::link_bin(&paths, &dest)?;
+    let stats = link::link_bin(&config, &dest)?;
     for collision in &stats.skipped_collisions {
         reporter.error(&format!("symlink collision: {collision} (use --force-link to override)"));
     }

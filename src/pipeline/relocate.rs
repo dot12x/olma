@@ -3,13 +3,8 @@ use crate::relocator::{classify::{classify_path, FileKind}, macho, text};
 use std::path::Path;
 use walkdir::WalkDir;
 
-/// A list of `(from_prefix, to_prefix)` swaps applied to every file in `dir`.
-/// The swaps are tried in order; the first matching prefix is rewritten and the
-/// remaining swaps still run independently (Mach-O load commands and text files
-/// may carry different references).
 pub type SwapList = Vec<(String, String)>;
 
-/// Relocates prefix references inside `dir` according to `swaps`.
 pub async fn relocate_tree(dir: &Path, swaps: SwapList) -> Result<RelocStats> {
     let dir = dir.to_path_buf();
     tokio::task::spawn_blocking(move || relocate_tree_blocking(&dir, &swaps))

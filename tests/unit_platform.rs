@@ -7,7 +7,7 @@ fn arch_current_returns_known_value() {
 }
 
 #[test]
-fn arch_as_bottle_str_returns_homebrew_names() {
+fn arch_as_bottle_str_uses_expected_tokens() {
     assert_eq!(Arch::Arm64.as_bottle_str(), "arm64");
     assert_eq!(Arch::X64.as_bottle_str(), "x86_64");
 }

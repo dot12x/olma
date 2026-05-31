@@ -9,7 +9,6 @@ pub struct WriteLock {
 }
 
 impl WriteLock {
-    /// Try to acquire the lock immediately. Returns `Err(LockBusy)` if held.
     pub fn try_acquire(path: &Path) -> Result<Self> {
         let file = OpenOptions::new()
             .create(true)
@@ -22,7 +21,6 @@ impl WriteLock {
         }
     }
 
-    /// Acquire the lock, polling every second. Cancellable by SIGINT (caller responsibility).
     pub async fn acquire_blocking(path: &Path) -> Result<Self> {
         loop {
             match Self::try_acquire(path) {
@@ -38,6 +36,6 @@ impl WriteLock {
 
 impl Drop for WriteLock {
     fn drop(&mut self) {
-        let _ = self.file.unlock();
+        let _ = fs2::FileExt::unlock(&self.file);
     }
 }

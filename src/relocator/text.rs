@@ -19,8 +19,6 @@ pub fn replace_prefix_in_bytes(input: &[u8], old: &str, new: &str) -> Vec<u8> {
     out
 }
 
-/// Reads the file, replaces, and writes back if any change occurred.
-/// Returns Ok(true) if the file was rewritten.
 pub fn relocate_text_file(
     path: &std::path::Path,
     old_prefix: &str,

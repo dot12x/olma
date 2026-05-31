@@ -2,8 +2,6 @@ use crate::error::{OlmaError, Result};
 use std::path::Path;
 use std::process::Command;
 
-/// Verifies `install_name_tool` and `codesign` are available.
-/// Returns `MissingXcodeCLT` if either is absent.
 pub fn check_clt_available() -> Result<()> {
     for tool in &["install_name_tool", "codesign", "otool"] {
         if which(tool).is_none() {
@@ -24,9 +22,6 @@ fn which(name: &str) -> Option<std::path::PathBuf> {
     None
 }
 
-/// Reads all dependency load commands (LC_LOAD_DYLIB, LC_ID_DYLIB, LC_RPATH)
-/// and any that begin with `old_prefix` are rewritten to start with `new_prefix`.
-/// After modification the binary is re-signed ad-hoc.
 pub fn relocate_macho(path: &Path, old_prefix: &str, new_prefix: &str) -> Result<()> {
     let load_cmds = otool_l(path)?;
 

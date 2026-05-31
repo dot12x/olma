@@ -1,4 +1,4 @@
-use crate::config::Paths;
+use crate::config::Config;
 use crate::error::{OlmaError, Result};
 use crate::metadata::{BottleFile, ghcr::GhcrClient};
 use sha2::{Digest, Sha256};
@@ -7,26 +7,20 @@ use tokio::fs::File;
 use tokio::io::AsyncWrite;
 
 pub struct Downloaded {
-    /// Final path of the cached bottle.
     pub path: PathBuf,
-    /// Hex-encoded sha256 of the bytes written.
     pub sha256_hex: String,
     pub bytes: u64,
 }
 
-/// Downloads the bottle to `cache/bottles/<expected_sha256>.tar.gz`.
-/// Returns the computed sha256 so the caller can verify against the formula's
-/// declared value.
 pub async fn download(
     ghcr: &GhcrClient,
     bottle: &BottleFile,
-    paths: &Paths,
+    config: &Config,
 ) -> Result<Downloaded> {
-    std::fs::create_dir_all(paths.cache_bottles())?;
+    std::fs::create_dir_all(config.cache_bottles())?;
 
-    let final_path = paths.cache_bottles().join(format!("{}.tar.gz", bottle.sha256));
+    let final_path = config.cache_bottles().join(format!("{}.tar.gz", bottle.sha256));
     if final_path.exists() {
-        // Reuse cached, but rehash to confirm integrity.
         let bytes = tokio::fs::read(&final_path).await?;
         let mut hasher = Sha256::new();
         hasher.update(&bytes);
@@ -38,13 +32,11 @@ pub async fn download(
         });
     }
 
-    // Homebrew bottle URLs look like:
-    //   https://ghcr.io/v2/homebrew/core/<name>/blobs/sha256:<digest>
     let scope_repo = extract_scope_repo(&bottle.url)
         .ok_or_else(|| OlmaError::Network(format!("unexpected bottle url: {}", bottle.url)))?;
     let token = ghcr.token(&scope_repo).await?;
 
-    let partial = paths.cache_bottles().join(format!("{}.tar.gz.partial", bottle.sha256));
+    let partial = config.cache_bottles().join(format!("{}.tar.gz.partial", bottle.sha256));
     let f = File::create(&partial).await?;
     let mut hashing = HashingWriter::new(f);
     let bytes = ghcr.fetch_blob(&bottle.url, &token, &mut hashing).await?;
@@ -55,7 +47,6 @@ pub async fn download(
 }
 
 fn extract_scope_repo(url: &str) -> Option<String> {
-    // Expect: https://ghcr.io/v2/<owner>/<repo>/blobs/sha256:<digest>
     let path = url.split("ghcr.io/").nth(1)?;
     let parts: Vec<&str> = path.split('/').collect();
     if parts.len() < 6 { return None; }

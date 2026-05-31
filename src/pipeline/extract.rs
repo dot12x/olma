@@ -1,9 +1,6 @@
 use crate::error::Result;
 use std::path::{Path, PathBuf};
 
-/// Extracts `tar.gz` from `archive_path` to `dest_dir`. Returns the absolute path
-/// of the first top-level directory entry the bottle created (Homebrew bottles
-/// wrap their payload under `<name>/<version>/...`).
 pub async fn extract(archive_path: &Path, dest_dir: &Path) -> Result<PathBuf> {
     let archive = archive_path.to_path_buf();
     let dest = dest_dir.to_path_buf();

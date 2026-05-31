@@ -38,7 +38,6 @@ pub fn classify_bytes(head: &[u8]) -> FileKind {
     }
 }
 
-/// Reads up to `len` bytes from `path` and classifies.
 pub fn classify_path(path: &std::path::Path) -> std::io::Result<FileKind> {
     use std::io::Read;
     let mut f = std::fs::File::open(path)?;
