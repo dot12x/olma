@@ -829,6 +829,7 @@ dependencies = [
  "dirs",
  "flate2",
  "fs2",
+ "futures-util",
  "memchr",
  "reqwest",
  "serde",
