@@ -253,7 +253,7 @@ V2 plan: replace shell-out with native Mach-O rewriting via `goblin`.
 |---|---|
 | `olma add <name>[@<ver>]…` | Install package(s) with deps |
 | `olma remove <name>` / `olma rm <name>` | Remove a package |
-| `olma reinstall <name>` | Atomic `remove` + `add`; preserves default version |
+| `olma readd <name>` | Atomic `remove` + `add`; preserves default version |
 | `olma upgrade [<name>]` | Install newer version(s) |
 | `olma update [--full]` | Refresh metadata cache |
 | `olma outdated` | Show packages with newer versions available |
