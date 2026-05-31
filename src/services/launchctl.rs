@@ -93,7 +93,7 @@ pub fn parse_print(out: &str) -> PrintSnapshot {
         if let Some(rest) = t.strip_prefix("pid = ") {
             snap.pid = rest.split_whitespace().next().and_then(|s| s.parse().ok());
         } else if let Some(rest) = t.strip_prefix("state = ") {
-            snap.state = match rest.split_whitespace().next().unwrap_or("") {
+            snap.state = match rest.trim() {
                 "running" => ServiceState::Running,
                 "not running" => ServiceState::Stopped,
                 _ => ServiceState::Unknown,
