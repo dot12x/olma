@@ -267,6 +267,7 @@ V2 plan: replace shell-out with native Mach-O rewriting via `goblin`.
 | `olma autoclean` | Remove non-default-version bottles + previous-generation packages |
 | `olma autoremove` | Remove orphaned auto-installed deps |
 | `olma purge <name>` | `remove` + delete its cached bottles |
+| `olma services <action> [<name>]` | Manage launchd services (see §11) |
 | `olma self-update` | Update the olma binary itself |
 
 ### Versioning model (replaces prior multi-version-per-formula design)
@@ -352,7 +353,122 @@ CREATE TABLE transactions (
 - `autoclean` warns: "After cleanup, rollback will not be available for these packages."
 - No redo (forward) in V1; after rollback, a subsequent `upgrade` is a fresh transaction.
 
-## 11. Error handling & UX
+## 11. Services (launchd)
+
+olma manages background daemons that ship with packages (postgres, redis, nginx, mosquitto, etc.) via macOS's launchd. Service definitions come straight from the formula's `service` block in the JSON API; olma renders a `.plist`, controls it with `launchctl`, and tracks state in `state.db`.
+
+### Command surface
+
+`olma services <action> [<name>]`:
+
+| Action | Effect |
+|---|---|
+| `list` | Tabular view of every formula that defines a service + its current state and autostart flag |
+| `start <name>` | Load and run the service now (ephemeral; does not survive reboot unless enabled) |
+| `stop <name>` | Stop the running instance |
+| `restart <name>` | `stop` then `start` |
+| `status <name>` | State, PID, uptime, last 10 log lines |
+| `enable <name>` | Mark the service to run at login (sets `RunAtLoad=true` and loads the plist) |
+| `disable <name>` | Remove from autostart |
+| `logs <name>` | Print recent stdout + stderr (V2: `--follow`) |
+| `reload <name>` | Signal the process to reload its config (SIGHUP) or restart if not supported |
+
+`start` vs `enable` follows the systemd distinction: `start` is "right now", `enable` is "every login".
+
+### Plist generation
+
+The formula's `service` block maps to launchd plist keys as follows:
+
+| Formula JSON field | plist key |
+|---|---|
+| `run` (array) | `ProgramArguments` |
+| `keep_alive` (bool/object) | `KeepAlive` |
+| `working_dir` | `WorkingDirectory` |
+| `log_path` | `StandardOutPath` (override: `/opt/olma/log/<name>/out.log`) |
+| `error_log_path` | `StandardErrorPath` (override: `/opt/olma/log/<name>/err.log`) |
+| `environment_variables` | `EnvironmentVariables` |
+| `process_type` | `ProcessType` (default `Background`) |
+| (computed) | `Label = sh.olma.<name>` |
+| (set by `enable`) | `RunAtLoad` |
+
+All paths inside the plist are relocated by the same swap list used for bottle relocation (§7) — references to `/opt/homebrew` and `/usr/local` become `/opt/olma`.
+
+### launchctl interface
+
+olma uses the modern API; deprecated `load`/`unload` are not used.
+
+| olma action | launchctl call |
+|---|---|
+| Load + (optionally) run | `launchctl bootstrap gui/$UID <plist>` |
+| Unload | `launchctl bootout gui/$UID/sh.olma.<name>` |
+| Force a one-shot run of a loaded service | `launchctl kickstart -k gui/$UID/sh.olma.<name>` |
+| Inspect state | `launchctl print gui/$UID/sh.olma.<name>` |
+| Disable autostart | `launchctl disable gui/$UID/sh.olma.<name>` |
+
+`$UID` is the invoking user's UID (`id -u`).
+
+### File locations
+
+- Plists: `~/Library/LaunchAgents/sh.olma.<name>.plist`
+- Logs: `/opt/olma/log/<name>/{out,err}.log` (one directory per service, launchd writes)
+- State: a `services` row in `state.db` tracking `enabled`, `last_action`, `last_action_ts`
+
+### Lifecycle integration with `add` / `remove` / `upgrade` / `readd`
+
+| Operation | Service behavior |
+|---|---|
+| `add` of a package with a service block | After install, print: `ℹ  Service available. Run \`olma services start <name>\` to start.` |
+| `remove` of a package that has a running service | Prompt: stop + disable + remove? (`-y` skips); leave plist file removed on disk |
+| `upgrade` of a running service | After upgrade, restart automatically |
+| `readd` of a running service | Stop → readd → restart |
+
+### Permissions
+
+V1 supports **user services only** (`~/Library/LaunchAgents`). No sudo required for any service operation.
+
+System-level services (`/Library/LaunchDaemons`, root) are deferred to V2 behind a `--system` flag.
+
+### Status format (minimal soft)
+
+```
+$ olma services status redis
+
+  redis  ●  running
+  pid     8421
+  uptime  2h 14m
+
+  Recent logs (last 10 lines):
+  …
+```
+
+```
+$ olma services list
+
+  NAME       STATE     PID    AUTOSTART
+  postgres   ●  running   8421   on
+  redis      ○  stopped   -      off
+  mosquitto  ●  running   8910   on
+```
+
+Colors follow §11 / output rules: `●` green when running, `○` dim when stopped, red on `failed`.
+
+### Caveats
+
+Some services need pre-start setup (e.g. postgres `initdb`, mosquitto config file). V1:
+
+- If the formula JSON has a `caveats` field, print it on the first `enable`/`start` and require the user to run it.
+- V2: `pre_start_hook` for opt-in automation.
+
+### Error cases
+
+| Condition | Behavior |
+|---|---|
+| Formula has no `service` block | `error: X does not provide a service` (exit 64) |
+| Service already loaded on `start` | Idempotent: kickstart instead, no error |
+| `launchctl` returns non-zero | Wrap stderr into `OlmaError::Other`, exit 1 |
+| Logs file missing for `logs` | Print empty hint: `(no logs yet)` |
+
+## 12. Error handling & UX
 
 ### Format
 
@@ -387,20 +503,21 @@ See §8.
 
 Color is always emitted (cyan spinner, green ✓, red ✗). There is no `--no-color` opt-out — the design decision is that olma owns its visual identity.
 
-## 12. Project structure (Rust)
+## 13. Project structure (Rust)
 
 Single crate `olma` (workspace deferred). Source tree:
 
 ```
 src/
 ├── main.rs
-├── cli/{mod,add,remove,list,info,search,update,upgrade,outdated,
+├── cli/{mod,add,remove,readd,list,info,search,update,upgrade,outdated,
 │       default,clean,autoclean,autoremove,purge,rollback,history,
-│       self_update}.rs
+│       services,self_update}.rs
 ├── metadata/{mod,client,ghcr}.rs
 ├── resolver/mod.rs
 ├── pipeline/{mod,download,verify,extract,relocate,link}.rs
 ├── relocator/{mod,macho,text,classify}.rs
+├── services/{mod,plist,launchctl,store}.rs
 ├── state/{mod,schema}.rs
 ├── fs_lock.rs
 ├── cache.rs
@@ -416,11 +533,11 @@ tests/
 
 ### Dependencies
 
-`clap` (derive), `tokio` (rt-multi-thread, fs, macros), `reqwest` (rustls, gzip, http2), `serde`, `serde_json`, `sha2`, `tar`, `flate2`, `rusqlite` (bundled), `fs2`, `console` (or `crossterm`), `indicatif`, `walkdir`, `memchr`, `anyhow`, `dirs`.
+`clap` (derive), `tokio` (rt-multi-thread, fs, macros), `reqwest` (rustls, gzip, http2), `serde`, `serde_json`, `sha2`, `tar`, `flate2`, `rusqlite` (bundled), `fs2`, `console` (or `crossterm`), `indicatif`, `walkdir`, `memchr`, `anyhow`, `dirs`, `quick-xml` (plist generation).
 
 Excluded V1: `tracing`, `clap_complete` (installer script generates completions), YAML/TOML parsers.
 
-## 13. Testing
+## 14. Testing
 
 ### Layers
 
@@ -447,12 +564,12 @@ V1: hit `formulae.brew.sh` and `ghcr.io` with retries. V2: fixture bottles cache
 
 Unit ≥ 80% (relocator is critical). Integration covers every CLI verb plus all listed error paths.
 
-## 14. V1 scope summary
+## 15. V1 scope summary
 
 In scope:
 - All formulas in homebrew-core (libraries arrive as auto-deps).
 - macOS arm64 + x64 across Ventura, Sonoma, Sequoia, Tahoe.
-- All commands in §8.
+- All commands in §8 — including `olma services` (user-level launchd, §11).
 - Bottle relocation via shell-out to `install_name_tool` + `codesign`.
 - Rollback with N=2 generations.
 
@@ -467,8 +584,11 @@ Deferred to V2:
 - Redo (forward generations).
 - Self-hosted Tahoe CI runner.
 - `--force-link` for symlink collisions.
+- System-level services (`--system`, `/Library/LaunchDaemons`).
+- `services logs --follow`.
+- Pre-start hooks for services that need `initdb`-style setup.
 
-## 15. Open questions
+## 16. Open questions
 
 None blocking. The following are minor and can be decided during implementation:
 
