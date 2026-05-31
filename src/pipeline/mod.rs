@@ -119,6 +119,16 @@ impl Pipeline {
         }
         TransactionRow::insert(&db, "add", &changes)?;
 
+        for item in &linked {
+            let sha = item.bottle_sha.clone();
+            db.with_conn(|c| {
+                c.execute(
+                    "INSERT OR IGNORE INTO bottle_consumers (formula, bottle_sha256) VALUES (?1, ?2)",
+                    rusqlite::params![item.formula.name, sha],
+                ).map(|_| ())
+            })?;
+        }
+
         let requested: Vec<&str> = plan.requested.iter().map(|s| s.as_str()).collect();
         self.reporter.success(&format!("Installed {} packages ({})", linked.len(), requested.join(", ")));
         Ok(())

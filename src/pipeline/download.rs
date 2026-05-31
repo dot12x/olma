@@ -49,11 +49,13 @@ pub async fn download(
 pub struct DownloadedWithFormula {
     pub dl: Downloaded,
     pub formula: crate::metadata::Formula,
+    pub bottle_sha: String,
 }
 
 impl DownloadedWithFormula {
     pub fn new(dl: Downloaded, formula: crate::metadata::Formula) -> Self {
-        Self { dl, formula }
+        let bottle_sha = dl.sha256_hex.clone();
+        Self { dl, formula, bottle_sha }
     }
 }
 
