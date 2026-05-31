@@ -11,6 +11,7 @@ pub struct LinkStats {
 
 pub fn link_bin(config: &Config, package_dir: &Path) -> Result<LinkStats> {
     let mut stats = LinkStats::default();
+    link_opt(config, package_dir)?;
     let bin_src = package_dir.join("bin");
     if !bin_src.exists() {
         return Ok(stats);
@@ -44,4 +45,20 @@ pub fn link_bin(config: &Config, package_dir: &Path) -> Result<LinkStats> {
         stats.linked.push(name);
     }
     Ok(stats)
+}
+
+fn link_opt(config: &Config, package_dir: &Path) -> Result<()> {
+    let name = package_dir.parent()
+        .and_then(|p| p.file_name())
+        .map(|s| s.to_string_lossy().to_string())
+        .ok_or_else(|| crate::error::OlmaError::Other(format!(
+            "cannot infer package name from {}", package_dir.display()
+        )))?;
+    std::fs::create_dir_all(config.opt())?;
+    let link = config.opt_link(&name);
+    if link.exists() || link.is_symlink() {
+        let _ = std::fs::remove_file(&link);
+    }
+    unix_fs::symlink(package_dir, &link)?;
+    Ok(())
 }

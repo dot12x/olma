@@ -50,11 +50,15 @@ pub async fn extract_and_relocate(
     std::fs::rename(&inner, &dest)?;
     let _ = std::fs::remove_dir_all(&staging);
 
-    let new_cellar = dest.to_string_lossy().to_string();
+    let new_cellar_pkg = dest.to_string_lossy().to_string();
+    let new_packages = config.packages().to_string_lossy().to_string();
     let new_root = config.root.to_string_lossy().to_string();
     let swaps: Vec<(String, String)> = vec![
-        (format!("/opt/homebrew/Cellar/{}/{}", item.formula.name, bottle_version_dir), new_cellar.clone()),
-        (format!("/usr/local/Cellar/{}/{}", item.formula.name, bottle_version_dir), new_cellar.clone()),
+        (format!("@@HOMEBREW_CELLAR@@/{}/{}", item.formula.name, bottle_version_dir), new_cellar_pkg.clone()),
+        (format!("/opt/homebrew/Cellar/{}/{}", item.formula.name, bottle_version_dir), new_cellar_pkg.clone()),
+        (format!("/usr/local/Cellar/{}/{}", item.formula.name, bottle_version_dir), new_cellar_pkg.clone()),
+        ("@@HOMEBREW_CELLAR@@".into(), new_packages.clone()),
+        ("@@HOMEBREW_PREFIX@@".into(), new_root.clone()),
         ("/opt/homebrew".into(), new_root.clone()),
         ("/usr/local".into(), new_root.clone()),
     ];

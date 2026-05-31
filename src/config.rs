@@ -15,6 +15,7 @@ impl Config {
 
     pub fn bin(&self) -> PathBuf { self.root.join("bin") }
     pub fn packages(&self) -> PathBuf { self.root.join("packages") }
+    pub fn opt(&self) -> PathBuf { self.root.join("opt") }
     pub fn cache(&self) -> PathBuf { self.root.join("cache") }
     pub fn cache_bottles(&self) -> PathBuf { self.cache().join("bottles") }
     pub fn cache_formulae(&self) -> PathBuf { self.cache().join("formulae") }
@@ -24,10 +25,15 @@ impl Config {
         self.packages().join(name).join(version)
     }
 
+    pub fn opt_link(&self, name: &str) -> PathBuf {
+        self.opt().join(name)
+    }
+
     pub fn ensure_layout(&self) -> std::io::Result<()> {
         for p in [
             self.bin(),
             self.packages(),
+            self.opt(),
             self.cache_bottles(),
             self.cache_formulae(),
         ] {
