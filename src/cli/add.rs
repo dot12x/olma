@@ -16,7 +16,7 @@ pub async fn run(name: &str, reporter: &dyn Reporter) -> Result<()> {
 
     reporter.status(&format!("Fetching {name} metadata"));
     let client = FormulaeClient::new(&config)?;
-    let formula = client.fetch(name).await?;
+    let formula = client.fetch(name, crate::metadata::client::FetchPolicy::CacheFirst).await?;
 
     if !formula.dependencies.is_empty() {
         return Err(OlmaError::Other(format!(
