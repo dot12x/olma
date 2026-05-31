@@ -13,7 +13,7 @@ async fn add_tree_installs_and_runs() {
 
     let reporter = olma::output::default_reporter();
     olma::cli::add::run(
-        "tree",
+        &["tree".to_string()],
         olma::metadata::client::FetchPolicy::CacheFirst,
         true,
         false,

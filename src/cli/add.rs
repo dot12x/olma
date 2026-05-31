@@ -1,92 +1,71 @@
 use crate::config::Config;
 use crate::error::{OlmaError, Result};
-use crate::fs_lock::WriteLock;
-use crate::metadata::{client::FormulaeClient, ghcr::GhcrClient};
-use crate::output::Reporter;
-use crate::pipeline::{download, extract, link, relocate, verify};
+use crate::metadata::client::{FetchPolicy, FormulaeClient};
+use crate::output::{default_reporter, Reporter};
+use crate::pipeline::Pipeline;
 use crate::platform::current_bottle_tag;
 use crate::relocator::macho;
+use crate::resolver::{InstallPlan, Resolver};
+use std::sync::Arc;
 
 pub async fn run(
-    name: &str,
-    policy: crate::metadata::client::FetchPolicy,
+    names: &[String],
+    policy: FetchPolicy,
     yes: bool,
     dry_run: bool,
     reporter: &dyn Reporter,
 ) -> Result<()> {
-    let _ = yes;
-    let _ = dry_run;
+    if names.is_empty() {
+        return Err(OlmaError::Other("no packages specified".into()));
+    }
     macho::check_clt_available()?;
 
-    let config = Config::from_env();
+    let config = Arc::new(Config::from_env());
     config.ensure_layout()?;
-    let _lock = WriteLock::acquire_blocking(&config.lock_file()).await?;
 
-    reporter.status(&format!("Fetching {name} metadata"));
+    reporter.status("Resolving dependencies");
     let client = FormulaeClient::new(&config)?;
-    let formula = client.fetch(name, policy).await?;
-
-    if !formula.dependencies.is_empty() {
-        return Err(OlmaError::Other(format!(
-            "{name} has dependencies; MVP supports zero-dep formulas only. \
-             Try `tree`, `jq`, or `fd`."
-        )));
-    }
+    let resolver = Resolver::new(&client, policy);
+    let plan = resolver.resolve(names).await?;
 
     let tag = current_bottle_tag().await?;
-    let bottle = formula.bottle_for_tag(&tag)
-        .ok_or_else(|| OlmaError::BottleNotForPlatform {
-            name: name.to_string(),
-            platform: tag.clone(),
-        })?;
+    print_plan(&plan, reporter);
 
-    reporter.status(&format!("Downloading {name} {}", formula.version()));
-    let ghcr = GhcrClient::new()?;
-    let dl = download::download(&ghcr, bottle, &config).await?;
-    verify::verify_sha256(&bottle.sha256, &dl.sha256_hex)?;
-
-    reporter.status(&format!("Extracting {name}"));
-    let staging = config.cache().join("staging")
-        .join(format!("{}-{}", formula.name, formula.version()));
-    if staging.exists() { std::fs::remove_dir_all(&staging)?; }
-    std::fs::create_dir_all(&staging)?;
-    extract::extract(&dl.path, &staging).await?;
-    let inner = staging.join(&formula.name).join(formula.version());
-    if !inner.is_dir() {
-        return Err(OlmaError::Other(format!(
-            "unexpected bottle layout: expected {}", inner.display()
-        )));
+    if dry_run {
+        reporter.success("dry run — nothing installed");
+        return Ok(());
     }
-    let dest = config.package_dir(&formula.name, formula.version());
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    if dest.exists() {
-        std::fs::remove_dir_all(&dest)?;
-    }
-    std::fs::rename(&inner, &dest)?;
-    let _ = std::fs::remove_dir_all(&staging);
-
-    reporter.status(&format!("Relocating {name}"));
-    let new_cellar = dest.to_string_lossy().to_string();
-    let new_root = config.root.to_string_lossy().to_string();
-    let swaps: Vec<(String, String)> = vec![
-        (format!("/opt/homebrew/Cellar/{}/{}", formula.name, formula.version()), new_cellar.clone()),
-        (format!("/usr/local/Cellar/{}/{}", formula.name, formula.version()), new_cellar.clone()),
-        ("/opt/homebrew".to_string(), new_root.clone()),
-        ("/usr/local".to_string(), new_root.clone()),
-    ];
-    relocate::relocate_tree(&dest, swaps).await?;
-
-    reporter.status(&format!("Linking {name} into bin/"));
-    let stats = link::link_bin(&config, &dest)?;
-    for collision in &stats.skipped_collisions {
-        reporter.error(&format!("symlink collision: {collision} (use --force-link to override)"));
+    if !confirm(yes)? {
+        return Err(OlmaError::Other("aborted".into()));
     }
 
-    reporter.success(&format!(
-        "Installed {} {} ({} bytes)",
-        formula.name, formula.version(), dl.bytes
-    ));
+    let pipeline_reporter: Arc<dyn Reporter> = Arc::from(default_reporter());
+    let pipeline = Pipeline::new(config, tag, pipeline_reporter);
+    pipeline.run(plan).await?;
     Ok(())
+}
+
+fn print_plan(plan: &InstallPlan, reporter: &dyn Reporter) {
+    let n = plan.ordered.len();
+    reporter.status(&format!("Will install {n} packages"));
+    for f in &plan.ordered {
+        reporter.status(&format!("  {} {}", f.name, f.version()));
+    }
+}
+
+fn confirm(yes: bool) -> Result<bool> {
+    use std::io::IsTerminal;
+    if yes {
+        return Ok(true);
+    }
+    if !std::io::stdin().is_terminal() {
+        return Err(OlmaError::Other("non-interactive: use -y".into()));
+    }
+    eprint!("Proceed? [Y/n] ");
+    use std::io::Write;
+    let _ = std::io::stderr().flush();
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).map_err(OlmaError::Io)?;
+    let trimmed = input.trim().to_lowercase();
+    Ok(trimmed.is_empty() || trimmed == "y" || trimmed == "yes")
 }

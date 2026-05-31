@@ -26,7 +26,10 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    Add { name: String },
+    Add {
+        #[arg(required = true)]
+        names: Vec<String>,
+    },
 }
 
 impl Cli {
@@ -53,7 +56,7 @@ pub async fn run() -> ExitCode {
         }
     };
     let result = match cli.cmd {
-        Cmd::Add { name } => add::run(&name, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
+        Cmd::Add { names } => add::run(&names, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
     };
     match result {
         Ok(()) => ExitCode::from(0),
