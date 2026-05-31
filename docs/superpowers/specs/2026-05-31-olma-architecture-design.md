@@ -289,9 +289,9 @@ For each installed package, olma creates `/opt/olma/bin/<exe>` symlinks for ever
 
 ### Global flags
 
-`-y`, `--dry-run`, `--offline`, `--no-cache`, `--refresh`, `-q/-v/-vv`, `--json`, `--no-color`, `--timeout SECS`.
+`-y`, `--dry-run`, `--offline`, `--no-cache`, `--refresh`, `-q/-v/-vv`, `--json`, `--timeout SECS`.
 
-Excluded: `-j`, `--force` (use specific `--force-*`), `--no-deps`.
+Excluded: `-j`, `--force` (use specific `--force-*`), `--no-deps`, `--no-color` (color is always on; user cannot disable).
 
 ### Exit codes
 
@@ -384,7 +384,8 @@ See §8.
 - **`-v`:** per-stage timestamped log.
 - **`-q`:** errors only.
 - **`--json`:** structured result, no progress.
-- **`--no-color`:** strip ANSI.
+
+Color is always emitted (cyan spinner, green ✓, red ✗). There is no `--no-color` opt-out — the design decision is that olma owns its visual identity.
 
 ## 12. Project structure (Rust)
 
