@@ -27,6 +27,15 @@ pub const MIGRATIONS: &[&str] = &[
     );
     CREATE INDEX IF NOT EXISTS idx_bottle_consumers_sha ON bottle_consumers (bottle_sha256);
     "#,
+    r#"
+    CREATE TABLE IF NOT EXISTS services (
+        name           TEXT PRIMARY KEY,
+        plist_path     TEXT NOT NULL,
+        enabled        INTEGER NOT NULL DEFAULT 0,
+        last_action    TEXT,
+        last_action_ts INTEGER
+    );
+    "#,
 ];
 
 pub fn apply(conn: &Connection) -> Result<()> {
