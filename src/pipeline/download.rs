@@ -63,7 +63,9 @@ fn extract_scope_repo(url: &str) -> Option<String> {
     let path = url.split("ghcr.io/").nth(1)?;
     let parts: Vec<&str> = path.split('/').collect();
     if parts.len() < 6 { return None; }
-    Some(format!("{}/{}/{}", parts[1], parts[2], parts[3]))
+    let blob_idx = parts.iter().position(|&s| s == "blobs")?;
+    if blob_idx < 2 { return None; }
+    Some(parts[1..blob_idx].join("/"))
 }
 
 struct HashingWriter<W> {
