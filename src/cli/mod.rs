@@ -1,4 +1,5 @@
 pub mod add;
+pub mod autoclean;
 pub mod clean;
 pub mod default;
 pub mod history;
@@ -42,6 +43,7 @@ enum Cmd {
         #[arg(required = true)]
         names: Vec<String>,
     },
+    Autoclean,
     Clean,
     Default {
         target: String,
@@ -102,6 +104,7 @@ pub async fn run() -> ExitCode {
     };
     let result = match cli.cmd {
         Cmd::Add { names } => add::run(&names, policy, cli.yes, cli.dry_run, reporter.as_ref()).await,
+        Cmd::Autoclean => autoclean::run(cli.yes, reporter.as_ref()).await,
         Cmd::Clean => clean::run(cli.yes, reporter.as_ref()).await,
         Cmd::Default { target } => default::run(&target, reporter.as_ref()).await,
         Cmd::List => list::run(reporter.as_ref()).await,
