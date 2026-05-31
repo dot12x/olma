@@ -1,6 +1,7 @@
 pub mod add;
 pub mod history;
 pub mod list;
+pub mod outdated;
 pub mod remove;
 pub mod rollback;
 pub mod update;
@@ -45,6 +46,7 @@ enum Cmd {
         #[arg(required = true)]
         names: Vec<String>,
     },
+    Outdated,
     Rollback,
     Update {
         #[arg(long)]
@@ -80,6 +82,7 @@ pub async fn run() -> ExitCode {
         Cmd::List => list::run(reporter.as_ref()).await,
         Cmd::History { limit } => history::run(limit, reporter.as_ref()).await,
         Cmd::Remove { names } => remove::run(&names, cli.yes, reporter.as_ref()).await,
+        Cmd::Outdated => outdated::run(reporter.as_ref()).await,
         Cmd::Rollback => rollback::run(cli.yes, reporter.as_ref()).await,
         Cmd::Update { full } => update::run(full, reporter.as_ref()).await,
     };
