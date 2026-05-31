@@ -20,6 +20,7 @@ dirs = "5"
 flate2 = "1"
 fs2 = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+hex = "0.4"
 memchr = "2"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "http2", "json", "stream"] }
 serde = { version = "1", features = ["derive"] }
